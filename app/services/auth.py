@@ -95,20 +95,26 @@ def get_gmail_service():
                 try:
                     flow = InstalledAppFlow.from_client_secrets_file(creds_path, settings.scopes)
                     
-                    # Check if we have a browser available (works on Windows, macOS, Linux)
-                    if platform.system() == 'Windows':
-                        has_browser = True  # Windows always has a browser
-                    else:
-                        has_browser = shutil.which('xdg-open') or shutil.which('open') or os.environ.get('DISPLAY')
-                    
                     # For Docker: bind to 0.0.0.0 so callback can reach container
                     # For local: bind to localhost for security
                     bind_address = "0.0.0.0" if is_web_auth_mode() else "localhost"
                     
+                    # Check if we should auto-open browser
+                    # In Docker/web mode: don't open browser, print URL to logs
+                    # On Windows/Mac/Linux desktop: auto-open browser
+                    if is_web_auth_mode():
+                        open_browser = False
+                    elif platform.system() == 'Windows':
+                        open_browser = True
+                    elif platform.system() == 'Darwin':  # macOS
+                        open_browser = True
+                    else:  # Linux
+                        open_browser = bool(shutil.which('xdg-open') or os.environ.get('DISPLAY'))
+                    
                     new_creds = flow.run_local_server(
                         port=settings.oauth_port,
                         bind_addr=bind_address,
-                        open_browser=has_browser
+                        open_browser=open_browser
                     )
                     
                     with open(settings.token_file, 'w') as token:
